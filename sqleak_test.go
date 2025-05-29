@@ -39,7 +39,7 @@ func TestConnectionLeakDetection(t *testing.T) {
 	// Let timeout elapse
 	time.Sleep(200 * time.Millisecond)
 
-	if !strings.Contains(logOutput.String(), "likely connection leak detected") {
+	if !strings.Contains(logOutput.String(), "likely resource leak detected") {
 		t.Error("expected leak warning in log but didn't find one")
 	}
 
@@ -77,7 +77,7 @@ func TestProperClosePreventsLeakWarning(t *testing.T) {
 	// Wait to ensure monitor would have triggered
 	time.Sleep(200 * time.Millisecond)
 
-	if strings.Contains(logOutput.String(), "likely connection leak detected") {
+	if strings.Contains(logOutput.String(), "likely resource leak detected") {
 		t.Error("did not expect leak warning, but found one:\n", logOutput.String())
 	}
 }
@@ -123,7 +123,11 @@ func TestExample(t *testing.T) {
 	Example()
 
 	// Check if the log contains the expected leak warning
-	if !strings.Contains(logOutput.String(), "likely connection leak detected") {
+	if !strings.Contains(logOutput.String(), "likely resource leak detected") {
 		t.Error("expected leak warning in log but didn't find one")
 	}
+}
+
+func TestRunExample(t *testing.T) {
+	Example()
 }

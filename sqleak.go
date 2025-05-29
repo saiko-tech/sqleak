@@ -31,29 +31,31 @@ var stackPool = sync.Pool{
 }
 
 type monitor struct {
-	timeout time.Duration
-	stack   []byte
-	closed  bool
+	timeout  time.Duration
+	stack    []byte
+	closed   bool
+	resource string
 }
 
 func (m *monitor) markClosed() {
 	m.closed = true
 }
 
-func newMonitor(timeout time.Duration) *monitor {
+func newMonitor(timeout time.Duration, resource string) *monitor {
 	buf := stackPool.Get().(*[]byte)
 
 	n := runtime.Stack(*buf, false)
 
 	mon := &monitor{
-		timeout: timeout,
-		stack:   (*buf)[:n],
-		closed:  false,
+		timeout:  timeout,
+		stack:    (*buf)[:n],
+		closed:   false,
+		resource: resource,
 	}
 
 	time.AfterFunc(mon.timeout, func() {
 		if !mon.closed {
-			log.Printf("likely connection leak detected: connection not closed within %s after opening:\n%s", mon.timeout, string(mon.stack))
+			log.Printf("likely resource leak detected: %s not closed within %s after opening:\n%s", mon.resource, mon.timeout, string(mon.stack))
 		}
 
 		stackPool.Put(&mon.stack)
@@ -92,7 +94,7 @@ func (ms *monitoredStmt) Query(args []driver.Value) (driver.Rows, error) {
 
 	mRows := &monitoredRows{
 		Rows:    rows,
-		monitor: newMonitor(ms.monitor.timeout),
+		monitor: newMonitor(ms.monitor.timeout, "Rows"),
 	}
 
 	return mRows, nil
@@ -128,7 +130,7 @@ func (mc *monitoredConn) Prepare(query string) (driver.Stmt, error) {
 
 	mStmt := &monitoredStmt{
 		Stmt:    stmt,
-		monitor: newMonitor(mc.timeout),
+		monitor: newMonitor(mc.timeout, "Stmt"),
 	}
 
 	return mStmt, nil
@@ -142,7 +144,7 @@ func (mc *monitoredConn) Begin() (driver.Tx, error) {
 
 	mTx := &monitoredTx{
 		Tx:      tx,
-		monitor: newMonitor(mc.timeout),
+		monitor: newMonitor(mc.timeout, "Tx"),
 	}
 
 	return mTx, nil
