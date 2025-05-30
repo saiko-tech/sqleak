@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"database/sql/driver"
+	"errors"
 	"log"
 	"runtime"
 	"sync"
@@ -137,6 +138,44 @@ func (mc *monitoredConn) Prepare(query string) (driver.Stmt, error) {
 }
 
 func (mc *monitoredConn) Begin() (driver.Tx, error) {
+	tx, err := mc.Conn.Begin()
+	if err != nil {
+		return nil, err
+	}
+
+	mTx := &monitoredTx{
+		Tx:      tx,
+		monitor: newMonitor(mc.timeout, "Tx"),
+	}
+
+	return mTx, nil
+}
+
+func (mc *monitoredConn) BeginTx(ctx context.Context, opts driver.TxOptions) (driver.Tx, error) {
+	if ciCtx, is := mc.Conn.(driver.ConnBeginTx); is {
+		tx, err := ciCtx.BeginTx(ctx, opts)
+		if err != nil {
+			return nil, err
+		}
+
+		return &monitoredTx{
+			Tx:      tx,
+			monitor: newMonitor(mc.timeout, "Tx"),
+		}, nil
+	}
+
+	// Check the transaction level. If the transaction level is non-default
+	// then return an error here as the BeginTx driver value is not supported.
+	if opts.Isolation != driver.IsolationLevel(sql.LevelDefault) {
+		return nil, errors.New("sql: driver does not support non-default isolation level")
+	}
+
+	// If a read-only transaction is requested return an error as the
+	// BeginTx driver value is not supported.
+	if opts.ReadOnly {
+		return nil, errors.New("sql: driver does not support read-only transactions")
+	}
+
 	tx, err := mc.Conn.Begin()
 	if err != nil {
 		return nil, err
