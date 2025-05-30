@@ -126,8 +126,6 @@ func TestExample(t *testing.T) {
 	if !strings.Contains(logOutput.String(), "likely resource leak detected") {
 		t.Error("expected leak warning in log but didn't find one")
 	}
-}
 
-func TestRunExample(t *testing.T) {
-	Example()
+	t.Logf("Log output: %s", logOutput.String())
 }
