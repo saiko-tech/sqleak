@@ -58,7 +58,7 @@ func newMonitor(timeout time.Duration, resource string) *monitor {
 			log.Printf("likely resource leak detected: %s not closed within %s after opening:\n%s", mon.resource, mon.timeout, string(mon.stack))
 		}
 
-		stackPool.Put(&mon.stack)
+		stackPool.Put(buf)
 	})
 
 	return mon
